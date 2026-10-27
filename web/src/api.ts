@@ -10,6 +10,8 @@ import type {
   PublicSettings,
   RunRequest,
   StreamEvent,
+  Subject,
+  SubjectColor,
   TextSource,
 } from '../../shared/types';
 
@@ -29,21 +31,31 @@ async function req<T>(method: string, url: string, body?: unknown): Promise<T> {
 export const api = {
   state: () => req<AppState>('GET', '/state'),
 
-  upload(files: File[]) {
+  createSubject: (name: string, color: SubjectColor, lessons: number) => req<Subject>('POST', '/subjects', { name, color, lessons }),
+  patchSubject: (id: string, patch: { name?: string; color?: SubjectColor; lessons?: number }) => req<Subject>('PATCH', `/subjects/${id}`, patch),
+  deleteSubject: (id: string) => req<void>('DELETE', `/subjects/${id}`),
+
+  upload(files: File[], subjectId?: string, lesson?: number) {
     const form = new FormData();
+    if (subjectId) form.append('subjectId', subjectId);
+    if (lesson) form.append('lesson', String(lesson));
     for (const f of files) form.append('files', f);
     return req<{ files: FileSummary[]; errors: string[] }>('POST', '/files', form);
   },
-  createText: (name: string, content: string) => req<FileSummary>('POST', '/files/text', { name, content }),
+  createText: (name: string, content: string, subjectId?: string, lesson?: number) =>
+    req<FileSummary>('POST', '/files/text', { name, content, subjectId, lesson }),
   getFile: (id: string) => req<FileRec>('GET', `/files/${id}`),
-  patchFile: (id: string, patch: { name?: string; enabled?: boolean; text?: string; textSource?: TextSource }) =>
+  patchFile: (
+    id: string,
+    patch: { name?: string; enabled?: boolean; text?: string; textSource?: TextSource; subjectId?: string | null; lesson?: number | null },
+  ) =>
     req<FileSummary>('PATCH', `/files/${id}`, patch),
   deleteFile: (id: string) => req<void>('DELETE', `/files/${id}`),
   visionFile: (id: string) => req<FileRec>('POST', `/files/${id}/vision`),
   rawUrl: (id: string) => `/api/files/${id}/raw`,
 
-  createCard: (type: CardType, body: string, fileIds: string[]) => req<Card>('POST', '/cards', { type, body, fileIds }),
-  patchCard: (id: string, patch: Partial<Pick<Card, 'type' | 'body'>>) => req<Card>('PATCH', `/cards/${id}`, patch),
+  createCard: (type: CardType, body: string, fileIds: string[], subjectId?: string) => req<Card>('POST', '/cards', { type, body, fileIds, subjectId }),
+  patchCard: (id: string, patch: Partial<Pick<Card, 'type' | 'body'>> & { subjectId?: string | null }) => req<Card>('PATCH', `/cards/${id}`, patch),
   duplicateCard: (id: string) => req<Card>('POST', `/cards/${id}/duplicate`),
   clearAnswers: (id: string) => req<Card>('DELETE', `/cards/${id}/answers`),
   deleteCard: (id: string) => req<void>('DELETE', `/cards/${id}`),
@@ -52,8 +64,8 @@ export const api = {
   deleteLink: (fileId: string, cardId: string) =>
     req<void>('DELETE', `/links?fileId=${encodeURIComponent(fileId)}&cardId=${encodeURIComponent(cardId)}`),
 
-  createChat: (context?: Partial<ChatContext>, title?: string) => req<Chat>('POST', '/chats', { context, title }),
-  patchChat: (id: string, patch: { title?: string; context?: ChatContext }) => req<Chat>('PATCH', `/chats/${id}`, patch),
+  createChat: (context?: Partial<ChatContext>, title?: string, subjectId?: string) => req<Chat>('POST', '/chats', { context, title, subjectId }),
+  patchChat: (id: string, patch: { title?: string; context?: ChatContext; subjectId?: string | null }) => req<Chat>('PATCH', `/chats/${id}`, patch),
   deleteChat: (id: string) => req<void>('DELETE', `/chats/${id}`),
 
   putSettings: (patch: unknown) => req<PublicSettings>('PUT', '/settings', patch),

@@ -2,6 +2,24 @@
 
 export type FileKind = 'image' | 'pdf' | 'audio' | 'text' | 'doc';
 
+/** Cores das matérias: nomes, não hex, para o CSS ter uma versão clara e uma escura de cada. */
+export const SUBJECT_COLORS = ['petroleo', 'verde', 'vinho', 'ocre', 'roxo', 'grafite'] as const;
+export type SubjectColor = (typeof SUBJECT_COLORS)[number];
+
+export const DEFAULT_LESSONS = 10;
+
+/**
+ * Matéria (Cálculo, Física…), dividida em aulas numeradas de 1 a `lessons`.
+ * Arquivos, cartões e conversas sem `subjectId` ficam em "Sem matéria".
+ */
+export interface Subject {
+  id: string;
+  name: string;
+  color: SubjectColor;
+  lessons: number;
+  createdAt: string;
+}
+
 /** De onde veio o texto associado a um arquivo (mostrado na interface para o usuário confiar nele). */
 export type TextSource = 'arquivo' | 'pdf' | 'docx' | 'transcricao' | 'visao' | 'manual';
 
@@ -19,6 +37,9 @@ export interface FileRec {
   text?: string;
   textSource?: TextSource;
   pages?: number;
+  subjectId?: string;
+  /** Pasta da aula dentro da matéria (1 = Aula 1). Sem número = "Sem aula". */
+  lesson?: number;
 }
 
 /** Versão enviada para a interface: sem o texto completo (pode ser grande). */
@@ -47,6 +68,7 @@ export interface Card {
   body: string;
   createdAt: string;
   answers: Answer[];
+  subjectId?: string;
 }
 
 /** Vínculo arquivo ↔ cartão. `active: false` mantém o vínculo mas não envia o arquivo. */
@@ -77,6 +99,7 @@ export interface Chat {
   updatedAt: string;
   context: ChatContext;
   messages: ChatMessage[];
+  subjectId?: string;
   /** Sessão do Claude Code reaproveitada com --resume enquanto o contexto não muda. */
   claudeSessionId?: string;
   claudeContextKey?: string;
@@ -97,6 +120,7 @@ export interface PublicSettings extends Omit<Settings, 'nvidia'> {
 
 export interface DB {
   version: 1;
+  subjects: Subject[];
   files: FileRec[];
   cards: Card[];
   links: Link[];
@@ -105,6 +129,7 @@ export interface DB {
 }
 
 export interface AppState {
+  subjects: Subject[];
   files: FileSummary[];
   cards: Card[];
   links: Link[];

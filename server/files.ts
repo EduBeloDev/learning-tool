@@ -3,7 +3,7 @@ import path from 'node:path';
 import { Router } from 'express';
 import multer from 'multer';
 import type { FileRec, TextSource } from '../shared/types';
-import { UPLOAD_DIR, db, filePath, newId, now, save, summarizeFile } from './store';
+import { UPLOAD_DIR, db, filePath, newId, now, save, summarizeFile, validLesson, validSubjectId } from './store';
 import { detectKind, extractText, unsupportedReason } from './extract';
 import { readImageWithVision } from './ai/nvidia';
 import { ProviderError } from './ai/types';
@@ -27,6 +27,8 @@ export const filesRouter = Router();
 filesRouter.post('/files', upload.array('files', 50), async (req, res) => {
   const created: FileRec[] = [];
   const errors: string[] = [];
+  const subjectId = validSubjectId(req.body?.subjectId);
+  const lesson = validLesson(subjectId, req.body?.lesson);
   for (const up of (req.files as Express.Multer.File[]) ?? []) {
     const name = fixName(up.originalname);
     const kind = detectKind(name, up.mimetype);
@@ -44,6 +46,8 @@ filesRouter.post('/files', upload.array('files', 50), async (req, res) => {
       storedName: up.filename,
       createdAt: now(),
       enabled: true,
+      subjectId,
+      lesson,
     };
     try {
       Object.assign(rec, await extractText(up.path, kind));
@@ -59,7 +63,7 @@ filesRouter.post('/files', upload.array('files', 50), async (req, res) => {
 
 /** Texto colado vira um arquivo como outro qualquer (transcrição, enunciado, anotações…). */
 filesRouter.post('/files/text', (req, res) => {
-  const { name, content } = req.body as { name?: string; content?: string };
+  const { name, content, subjectId, lesson } = req.body as { name?: string; content?: string; subjectId?: string; lesson?: number };
   if (!content?.trim()) return res.status(400).json({ error: 'O texto está vazio.' });
   const id = newId();
   const storedName = `${id}.txt`;
@@ -75,6 +79,8 @@ filesRouter.post('/files/text', (req, res) => {
     enabled: true,
     text: content,
     textSource: 'manual',
+    subjectId: validSubjectId(subjectId),
+    lesson: validLesson(subjectId, lesson),
   };
   db.files.push(rec);
   save();
@@ -98,9 +104,19 @@ filesRouter.get('/files/:id/raw', (req, res) => {
 filesRouter.patch('/files/:id', (req, res) => {
   const f = findFile(req.params.id);
   if (!f) return res.status(404).json({ error: 'Arquivo não encontrado.' });
-  const { name, enabled, text, textSource } = req.body as Partial<FileRec> & { textSource?: TextSource };
+  const { name, enabled, text, textSource, subjectId, lesson } = req.body as Partial<Omit<FileRec, 'subjectId' | 'lesson'>> & {
+    textSource?: TextSource;
+    subjectId?: string | null;
+    lesson?: number | null;
+  };
   if (typeof name === 'string' && name.trim()) f.name = name.trim();
   if (typeof enabled === 'boolean') f.enabled = enabled;
+  if (subjectId !== undefined && validSubjectId(subjectId) !== f.subjectId) {
+    f.subjectId = validSubjectId(subjectId);
+    // A Aula 3 de Cálculo não é a Aula 3 de Física: trocou de matéria, cai em "Sem aula" (a menos que a aula venha junto).
+    delete f.lesson;
+  }
+  if (lesson !== undefined) f.lesson = validLesson(f.subjectId, lesson);
   if (typeof text === 'string') {
     f.text = text;
     f.textSource = textSource === 'transcricao' ? 'transcricao' : 'manual';

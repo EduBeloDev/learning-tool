@@ -33,7 +33,12 @@ interface Store {
   setTab: (t: Tab) => void;
   activeChatId: string | null;
   setActiveChatId: (id: string | null) => void;
-  openChatWith: (context: Partial<ChatContext>, title?: string) => Promise<void>;
+  openChatWith: (context: Partial<ChatContext>, title?: string, subjectId?: string) => Promise<void>;
+
+  /** Matéria aberta; null = "Todas". Vale para Workspace, Ferramentas e Chat ao mesmo tempo. */
+  subjectId: string | null;
+  setSubjectId: (id: string | null) => void;
+  inSubject: (item: { subjectId?: string }) => boolean;
 
   runs: Record<string, RunState>;
   startRun: (key: string, body: RunRequest) => Promise<StreamEvent | undefined>;
@@ -63,11 +68,22 @@ const tabFromHash = (): Tab => {
   return TABS.includes(h) ? h : 'workspace';
 };
 
+const SUBJECT_KEY = 'caderno-materia';
+
+function storedSubject(): string | null {
+  try {
+    return localStorage.getItem(SUBJECT_KEY);
+  } catch {
+    return null;
+  }
+}
+
 export function StoreProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<AppState | null>(null);
   const [loadError, setLoadError] = useState<string>();
   const [tab, setTabState] = useState<Tab>(tabFromHash);
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [subjectId, setSubjectIdState] = useState<string | null>(storedSubject);
   const [runs, setRuns] = useState<Record<string, RunState>>({});
   const [transcriptions, setTranscriptions] = useState<Store['transcriptions']>({});
   const [toasts, setToasts] = useState<Toast[]>([]);
@@ -108,9 +124,26 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     return () => removeEventListener('hashchange', onHash);
   }, []);
 
+  const setSubjectId = useCallback((id: string | null) => {
+    setSubjectIdState(id);
+    try {
+      if (id) localStorage.setItem(SUBJECT_KEY, id);
+      else localStorage.removeItem(SUBJECT_KEY);
+    } catch {
+      /* modo privado: a matéria escolhida só vale nesta sessão */
+    }
+  }, []);
+
+  // A matéria lembrada pode ter sido apagada (ou ser de outra pasta data/): volta para "Todas".
+  useEffect(() => {
+    if (state && subjectId && !state.subjects.some((s) => s.id === subjectId)) setSubjectId(null);
+  }, [state, subjectId, setSubjectId]);
+
+  const inSubject = useCallback((item: { subjectId?: string }) => subjectId === null || item.subjectId === subjectId, [subjectId]);
+
   const openChatWith = useCallback(
-    async (context: Partial<ChatContext>, title?: string) => {
-      const chat = await api.createChat(context, title);
+    async (context: Partial<ChatContext>, title?: string, subjectId?: string) => {
+      const chat = await api.createChat(context, title, subjectId);
       await refresh();
       setActiveChatId(chat.id);
       setTab('chat');
@@ -201,6 +234,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       activeChatId,
       setActiveChatId,
       openChatWith,
+      subjectId,
+      setSubjectId,
+      inSubject,
       runs,
       startRun,
       cancelRun,
@@ -212,7 +248,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       settingsOpen,
       setSettingsOpen,
     }),
-    [state, loadError, refresh, tab, setTab, activeChatId, openChatWith, runs, startRun, cancelRun, clearRun, transcriptions, queueTranscription, toasts, toast, settingsOpen],
+    [state, loadError, refresh, tab, setTab, activeChatId, openChatWith, subjectId, setSubjectId, inSubject, runs, startRun, cancelRun, clearRun, transcriptions, queueTranscription, toasts, toast, settingsOpen],
   );
 
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>;

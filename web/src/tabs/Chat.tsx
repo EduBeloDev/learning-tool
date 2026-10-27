@@ -6,10 +6,11 @@ import { useStore } from '../store';
 import { FileIcon, FilePicker } from '../components/files';
 import { Markdown } from '../components/Markdown';
 import { CopyButton, RunOutput } from '../components/RunOutput';
+import { SubjectSelect } from '../components/Subjects';
 
 export function Chat() {
-  const { state, activeChatId, setActiveChatId, refresh } = useStore();
-  const chats = state?.chats ?? [];
+  const { state, activeChatId, setActiveChatId, refresh, subjectId, inSubject } = useStore();
+  const chats = (state?.chats ?? []).filter(inSubject);
   const active = chats.find((c) => c.id === activeChatId) ?? null;
 
   // Sem conversa escolhida: abre a mais recente.
@@ -18,7 +19,7 @@ export function Chat() {
   }, [active, chats, setActiveChatId]);
 
   const newChat = async () => {
-    const chat = await api.createChat();
+    const chat = await api.createChat(undefined, undefined, subjectId ?? undefined);
     await refresh();
     setActiveChatId(chat.id);
   };
@@ -65,11 +66,12 @@ export function Chat() {
 }
 
 function Conversation({ chat }: { chat: ChatT }) {
-  const { state, setState, refresh, runs, startRun, cancelRun, setActiveChatId } = useStore();
+  const { state, setState, refresh, runs, startRun, cancelRun, setActiveChatId, inSubject } = useStore();
   const [input, setInput] = useState('');
   const bottom = useRef<HTMLDivElement>(null);
   const runKey = `chat:${chat.id}`;
   const run = runs[runKey];
+  // O contexto já escolhido aparece sempre; os seletores só oferecem o que é da matéria aberta.
   const files = state?.files ?? [];
   const cards = state?.cards ?? [];
 
@@ -118,6 +120,13 @@ function Conversation({ chat }: { chat: ChatT }) {
             }
           }}
         />
+        <SubjectSelect
+          value={chat.subjectId}
+          onChange={async (subjectId) => {
+            await api.patchChat(chat.id, { subjectId });
+            await refresh();
+          }}
+        />
         <button
           className="icon-btn"
           aria-label="Excluir conversa"
@@ -158,7 +167,7 @@ function Conversation({ chat }: { chat: ChatT }) {
           </span>
         ))}
         <CardPicker selected={new Set(chat.context.cardIds)} onToggle={(id) => setContext({ ...chat.context, cardIds: toggle(chat.context.cardIds, id) })} />
-        <FilePicker files={files} selected={new Set(chat.context.fileIds)} onToggle={(id) => setContext({ ...chat.context, fileIds: toggle(chat.context.fileIds, id) })} />
+        <FilePicker files={files.filter(inSubject)} selected={new Set(chat.context.fileIds)} onToggle={(id) => setContext({ ...chat.context, fileIds: toggle(chat.context.fileIds, id) })} />
         {!contextCards.length && !contextFiles.length && <span className="muted small">nenhum (conversa livre)</span>}
       </div>
 
@@ -224,9 +233,9 @@ function Conversation({ chat }: { chat: ChatT }) {
 }
 
 function CardPicker({ selected, onToggle }: { selected: Set<string>; onToggle: (id: string) => void }) {
-  const { state } = useStore();
+  const { state, inSubject } = useStore();
   const [open, setOpen] = useState(false);
-  const cards = state?.cards ?? [];
+  const cards = (state?.cards ?? []).filter(inSubject);
   return (
     <div className="picker" onBlur={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOpen(false)}>
       <button className="btn btn-ghost btn-sm" onClick={() => setOpen((o) => !o)} aria-expanded={open}>

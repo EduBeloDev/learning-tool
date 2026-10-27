@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { ClipboardPaste, Copy, MessageCircle, MoreHorizontal, Play, PlayCircle, Trash2, Upload, Eraser, History } from 'lucide-react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
+import { ChevronRight, ClipboardPaste, Copy, Eraser, Folder, FolderOpen, History, MessageCircle, MoreHorizontal, Play, PlayCircle, Trash2, Upload } from 'lucide-react';
 import type { Card, CardType, FileSummary } from '../../../shared/types';
 import { api } from '../api';
 import { useStore } from '../store';
 import { Dialog } from '../components/Dialog';
-import { FileDrawer, FileIcon, FilePicker, FileStatus, LinkChip, formatSize } from '../components/files';
+import { FILE_DRAG, FileDrawer, FileIcon, FilePicker, FileStatus, LinkChip, formatSize } from '../components/files';
 import { Markdown } from '../components/Markdown';
 import { CopyButton, RunOutput } from '../components/RunOutput';
+import { SubjectSelect, lessonLabel, lessonNumbers } from '../components/Subjects';
 
-const FILE_DRAG = 'application/x-caderno-file';
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,application/pdf,audio/*,video/*,.txt,.md,.srt,.vtt,.csv,.tex,.docx';
 
 const TYPE_INFO: Record<CardType, { label: string; hint: string; placeholder: string }> = {
@@ -22,21 +22,28 @@ const TYPE_INFO: Record<CardType, { label: string; hint: string; placeholder: st
 };
 
 export function Workspace() {
-  const { state, refresh, toast, startRun, runs, tab } = useStore();
+  const { state, refresh, toast, startRun, runs, tab, subjectId, inSubject } = useStore();
   const [drawerFile, setDrawerFile] = useState<string | null>(null);
   const [hoverFile, setHoverFile] = useState<string | null>(null);
   const [hoverCard, setHoverCard] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
+  // Por matéria: a aula que recebe os envios ("Enviar para") e quais pastas estão abertas.
+  const [uploadTo, setUploadTo] = useState<Record<string, number>>({});
+  const [openFolders, setOpenFolders] = useState<Record<string, boolean>>({});
+
+  const subject = state?.subjects.find((s) => s.id === subjectId);
+  const uploadLesson = subject ? Math.min(uploadTo[subject.id] ?? 1, subject.lessons) : 0;
+  const setUploadLesson = (n: number) => subject && setUploadTo((u) => ({ ...u, [subject.id]: n }));
 
   const upload = useCallback(
-    async (files: File[]): Promise<FileSummary[]> => {
+    async (files: File[], lesson = uploadLesson): Promise<FileSummary[]> => {
       if (!files.length) return [];
       setUploading(true);
       try {
-        const res = await api.upload(files);
+        const res = await api.upload(files, subjectId ?? undefined, lesson || undefined);
         res.errors.forEach((e) => toast(e, 'error'));
-        if (res.files.length) toast(`${res.files.length} arquivo(s) adicionado(s).`, 'ok');
+        if (res.files.length) toast(`${res.files.length} arquivo(s) adicionado(s)${lesson ? ` na ${lessonLabel(lesson)}` : ''}.`, 'ok');
         await refresh();
         return res.files;
       } catch (err) {
@@ -46,7 +53,7 @@ export function Workspace() {
         setUploading(false);
       }
     },
-    [refresh, toast],
+    [refresh, toast, subjectId, uploadLesson],
   );
 
   // Ctrl+V com uma imagem (print de tela, foto copiada) vira arquivo direto, só quando o Workspace está visível.
@@ -64,7 +71,10 @@ export function Workspace() {
   }, [upload, tab]);
 
   if (!state) return null;
-  const { files, cards, links } = state;
+  const { links } = state;
+  const files = state.files.filter(inSubject);
+  const cards = state.cards.filter(inSubject);
+  const linkedToHover = (f: FileSummary) => Boolean(hoverCard && links.some((l) => l.cardId === hoverCard && l.fileId === f.id));
 
   const answerAll = async () => {
     const todo = cards.filter((c) => (c.body.trim() || c.type === 'geral') && !runs[`card:${c.id}`]?.running);
@@ -72,6 +82,63 @@ export function Workspace() {
     if (!confirm(`Responder ${todo.length} cartão(ões), um de cada vez?`)) return;
     for (const c of todo) await startRun(`card:${c.id}`, { kind: 'card', cardId: c.id });
   };
+
+  const moveToLesson = async (fileId: string, lesson: number) => {
+    const f = files.find((x) => x.id === fileId);
+    if (!f || (f.lesson ?? 0) === lesson) return;
+    await api.patchFile(fileId, { lesson: lesson || null });
+    await refresh();
+  };
+
+  const fileRow = (f: FileSummary) => {
+    const linkedCards = links.filter((l) => l.fileId === f.id).length;
+    // Em "Todas", cada fonte diz de onde é; dentro de uma matéria, a pasta já diz.
+    const fileSubject = !subject && state.subjects.find((s) => s.id === f.subjectId);
+    return (
+      <li
+        key={f.id}
+        className={`file-row ${f.enabled ? '' : 'file-off'} ${linkedToHover(f) ? 'file-hl' : ''}`}
+        draggable
+        onDragStart={(e) => {
+          e.dataTransfer.setData(FILE_DRAG, f.id);
+          e.dataTransfer.effectAllowed = 'link';
+        }}
+        onMouseEnter={() => setHoverFile(f.id)}
+        onMouseLeave={() => setHoverFile(null)}
+      >
+        <FileIcon kind={f.kind} />
+        <div className="file-main">
+          <button className="file-name" onClick={() => setDrawerFile(f.id)} title="Abrir: ver, editar texto, transcrever, mudar de aula">
+            {f.name}
+          </button>
+          <div className="file-meta">
+            <FileStatus file={f} />
+            <span>· {formatSize(f.size)}</span>
+            {linkedCards > 0 && <span>· {linkedCards === 1 ? '1 cartão' : `${linkedCards} cartões`}</span>}
+            {fileSubject && (
+              <span className={`file-subject subj-${fileSubject.color}`}>
+                · <span className="subject-dot" aria-hidden /> {fileSubject.name}
+                {f.lesson ? `, ${lessonLabel(f.lesson)}` : ''}
+              </span>
+            )}
+          </div>
+        </div>
+        <Switch
+          checked={f.enabled}
+          label={f.enabled ? `Desligar ${f.name} em todos os cartões` : `Ligar ${f.name}`}
+          onChange={async (enabled) => {
+            await api.patchFile(f.id, { enabled });
+            refresh();
+          }}
+        />
+      </li>
+    );
+  };
+
+  // "Sem aula" só aparece quando tem algo para organizar.
+  const folders = subject
+    ? [0, ...lessonNumbers(subject)].map((n) => ({ lesson: n, files: files.filter((f) => (f.lesson ?? 0) === n) })).filter((g) => g.lesson || g.files.length)
+    : [];
 
   return (
     <div className="workspace">
@@ -81,51 +148,44 @@ export function Workspace() {
           <span className="count">{files.length}</span>
         </header>
 
-        <Dropzone onFiles={upload} busy={uploading} />
+        {subject && <LessonSelect label="Enviar para" subjectLessons={subject.lessons} value={uploadLesson} onChange={setUploadLesson} />}
+        <Dropzone onFiles={(f) => upload(f)} busy={uploading} />
         <button className="btn btn-ghost btn-block" onClick={() => setPasteOpen(true)}>
           <ClipboardPaste size={15} /> Colar texto ou transcrição
         </button>
 
-        <ul className="file-list">
-          {files.map((f) => {
-            const linkedCards = links.filter((l) => l.fileId === f.id).length;
-            const hl = hoverCard && links.some((l) => l.cardId === hoverCard && l.fileId === f.id);
-            return (
-              <li
-                key={f.id}
-                className={`file-row ${f.enabled ? '' : 'file-off'} ${hl ? 'file-hl' : ''}`}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.setData(FILE_DRAG, f.id);
-                  e.dataTransfer.effectAllowed = 'link';
-                }}
-                onMouseEnter={() => setHoverFile(f.id)}
-                onMouseLeave={() => setHoverFile(null)}
-              >
-                <FileIcon kind={f.kind} />
-                <div className="file-main">
-                  <button className="file-name" onClick={() => setDrawerFile(f.id)} title="Abrir: ver, editar texto, transcrever">
-                    {f.name}
-                  </button>
-                  <div className="file-meta">
-                    <FileStatus file={f} />
-                    <span>· {formatSize(f.size)}</span>
-                    {linkedCards > 0 && <span>· {linkedCards === 1 ? '1 cartão' : `${linkedCards} cartões`}</span>}
-                  </div>
-                </div>
-                <Switch
-                  checked={f.enabled}
-                  label={f.enabled ? `Desligar ${f.name} em todos os cartões` : `Ligar ${f.name}`}
-                  onChange={async (enabled) => {
-                    await api.patchFile(f.id, { enabled });
-                    refresh();
+        {subject ? (
+          <div className="folders">
+            {folders.map(({ lesson, files: inFolder }) => {
+              const key = `${subject.id}:${lesson}`;
+              const open = openFolders[key] ?? inFolder.length > 0;
+              return (
+                <LessonFolder
+                  key={key}
+                  lesson={lesson}
+                  count={inFolder.length}
+                  open={open}
+                  highlighted={!open && inFolder.some(linkedToHover)}
+                  onToggle={() => setOpenFolders((o) => ({ ...o, [key]: !open }))}
+                  onMove={(fileId) => moveToLesson(fileId, lesson)}
+                  onUpload={(f) => {
+                    setOpenFolders((o) => ({ ...o, [key]: true }));
+                    upload(f, lesson);
                   }}
-                />
-              </li>
-            );
-          })}
-        </ul>
-        {files.length > 0 && <p className="muted small hint">Arraste um arquivo até um cartão para vincular. O interruptor desliga o arquivo em todos os cartões.</p>}
+                >
+                  {inFolder.map(fileRow)}
+                </LessonFolder>
+              );
+            })}
+          </div>
+        ) : (
+          <ul className="file-list">{files.map(fileRow)}</ul>
+        )}
+        {files.length > 0 && (
+          <p className="muted small hint">
+            Arraste um arquivo até um cartão para vincular{subject ? ', ou até outra pasta para mudar de aula' : ''}. O interruptor desliga o arquivo em todos os cartões.
+          </p>
+        )}
       </aside>
 
       <section className="cards" aria-label="Cartões">
@@ -144,9 +204,10 @@ export function Workspace() {
 
         {cards.length === 0 && (
           <div className="empty">
-            <p className="empty-title">Nenhum cartão ainda.</p>
+            <p className="empty-title">{subject ? `Nenhum cartão em ${subject.name} ainda.` : 'Nenhum cartão ainda.'}</p>
             <p>
-              Um cartão é uma pergunta, um texto ou um pedido geral. Você liga arquivos a ele e clica em <strong>Responder</strong>. Exemplos:
+              Um cartão é uma pergunta, um texto ou um pedido geral. Você liga arquivos a ele{subject ? ' (de quantas aulas quiser)' : ''} e clica em{' '}
+              <strong>Responder</strong>. Exemplos:
             </p>
             <ul>
               <li>“Resolva os exercícios 1 a 5 e explique o raciocínio” + a foto da lista</li>
@@ -169,7 +230,12 @@ export function Workspace() {
       </section>
 
       <FileDrawer fileId={drawerFile} onClose={() => setDrawerFile(null)} />
-      <PasteTextDialog open={pasteOpen} onClose={() => setPasteOpen(false)} />
+      <PasteTextDialog
+        open={pasteOpen}
+        onClose={() => setPasteOpen(false)}
+        lessonPicker={subject && <LessonSelect label="Aula" subjectLessons={subject.lessons} value={uploadLesson} onChange={setUploadLesson} />}
+        lesson={uploadLesson}
+      />
     </div>
   );
 }
@@ -179,6 +245,96 @@ function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: 
     <button role="switch" aria-checked={checked} aria-label={label} title={label} className="switch" onClick={() => onChange(!checked)}>
       <span className="switch-knob" />
     </button>
+  );
+}
+
+function LessonSelect({ label, subjectLessons, value, onChange }: { label: string; subjectLessons: number; value: number; onChange: (n: number) => void }) {
+  return (
+    <label className="field inline lesson-select">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(Number(e.target.value))}>
+        <option value={0}>Sem aula</option>
+        {Array.from({ length: subjectLessons }, (_, i) => (
+          <option key={i + 1} value={i + 1}>
+            {lessonLabel(i + 1)}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+/** Pasta de uma aula: abre e fecha, recebe arquivos do computador (envio) e fontes arrastadas (muda a aula). */
+function LessonFolder({
+  lesson,
+  count,
+  open,
+  highlighted,
+  onToggle,
+  onMove,
+  onUpload,
+  children,
+}: {
+  lesson: number;
+  count: number;
+  open: boolean;
+  highlighted: boolean;
+  onToggle: () => void;
+  onMove: (fileId: string) => void;
+  onUpload: (files: File[]) => void;
+  children: ReactNode;
+}) {
+  const input = useRef<HTMLInputElement>(null);
+  const [over, setOver] = useState(false);
+  const label = lessonLabel(lesson);
+  const Icon = open ? FolderOpen : Folder;
+  return (
+    <section
+      className={`folder ${lesson ? '' : 'folder-loose'} ${over ? 'over' : ''} ${highlighted ? 'folder-hl' : ''}`}
+      aria-label={label}
+      onDragOver={(e) => {
+        if (!e.dataTransfer.types.includes(FILE_DRAG) && !e.dataTransfer.types.includes('Files')) return;
+        e.preventDefault();
+        setOver(true);
+      }}
+      onDragLeave={(e) => !e.currentTarget.contains(e.relatedTarget as Node) && setOver(false)}
+      onDrop={(e) => {
+        e.preventDefault();
+        setOver(false);
+        const id = e.dataTransfer.getData(FILE_DRAG);
+        if (id) onMove(id);
+        else onUpload([...e.dataTransfer.files]);
+      }}
+    >
+      <header className="folder-head">
+        <button className="folder-toggle" aria-expanded={open} onClick={onToggle}>
+          <ChevronRight size={15} className="folder-chevron" aria-hidden />
+          <Icon size={17} aria-hidden className="folder-icon" />
+          <span className="folder-name">{label}</span>
+          <span className="count">{count}</span>
+        </button>
+        {lesson > 0 && (
+          <>
+            <button className="icon-btn" onClick={() => input.current?.click()} aria-label={`Enviar arquivos para a ${label}`} title={`Enviar arquivos para a ${label}`}>
+              <Upload size={15} />
+            </button>
+            <input
+              ref={input}
+              type="file"
+              multiple
+              accept={ACCEPT}
+              hidden
+              onChange={(e) => {
+                onUpload([...(e.target.files ?? [])]);
+                e.target.value = '';
+              }}
+            />
+          </>
+        )}
+      </header>
+      {open && (count ? <ul className="file-list">{children}</ul> : <p className="muted small folder-empty">Vazia. Solte arquivos aqui ou use o botão de envio.</p>)}
+      {open && !lesson && <p className="muted small folder-empty">Arraste cada arquivo para a pasta da aula.</p>}
+    </section>
   );
 }
 
@@ -223,13 +379,13 @@ function Dropzone({ onFiles, busy }: { onFiles: (f: File[]) => void; busy: boole
   );
 }
 
-function PasteTextDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const { refresh, toast } = useStore();
+function PasteTextDialog({ open, onClose, lesson, lessonPicker }: { open: boolean; onClose: () => void; lesson: number; lessonPicker?: ReactNode }) {
+  const { refresh, toast, subjectId } = useStore();
   const [name, setName] = useState('');
   const [content, setContent] = useState('');
   const submit = async () => {
     try {
-      await api.createText(name, content);
+      await api.createText(name, content, subjectId ?? undefined, lesson || undefined);
       await refresh();
       setName('');
       setContent('');
@@ -245,6 +401,7 @@ function PasteTextDialog({ open, onClose }: { open: boolean; onClose: () => void
           <span>Nome</span>
           <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Ex.: Transcrição aula 12" />
         </label>
+        {lessonPicker}
         <label className="field">
           <span>Conteúdo</span>
           <textarea rows={12} value={content} onChange={(e) => setContent(e.target.value)} placeholder="Cole a transcrição, o enunciado, suas anotações…" />
@@ -275,16 +432,24 @@ function TypeSwitch({ value, onChange }: { value: CardType; onChange: (t: CardTy
 }
 
 function Composer({ files }: { files: FileSummary[] }) {
-  const { refresh, startRun, toast } = useStore();
+  const { refresh, startRun, toast, subjectId } = useStore();
   const [type, setType] = useState<CardType>('pergunta');
   const [body, setBody] = useState('');
   const [attach, setAttach] = useState<Set<string>>(new Set());
 
-  const ready = body.trim() || (type === 'geral' && attach.size > 0);
+  // Ao trocar de matéria, arquivos marcados em outra matéria somem da lista e não podem ir junto escondidos.
+  const attached = [...attach].filter((id) => files.some((f) => f.id === id));
+  const toggleAttach = (id: string) =>
+    setAttach((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  const ready = body.trim() || (type === 'geral' && attached.length > 0);
 
   const submit = async (answer: boolean) => {
     if (!ready) return toast(type === 'geral' ? 'Selecione pelo menos um arquivo para o cartão geral.' : 'Escreva a pergunta ou o texto.');
-    const card = await api.createCard(type, body, [...attach]);
+    const card = await api.createCard(type, body, attached, subjectId ?? undefined);
     setBody('');
     setAttach(new Set());
     await refresh();
@@ -313,20 +478,13 @@ function Composer({ files }: { files: FileSummary[] }) {
       {files.length > 0 && (
         <div className="chips" aria-label="Arquivos para vincular">
           <span className="muted small">Vincular:</span>
-          {files.map((f) => (
-            <LinkChip
-              key={f.id}
-              file={f}
-              active={attach.has(f.id)}
-              onToggle={() =>
-                setAttach((s) => {
-                  const n = new Set(s);
-                  n.has(f.id) ? n.delete(f.id) : n.add(f.id);
-                  return n;
-                })
-              }
-            />
-          ))}
+          {files
+            .filter((f) => attach.has(f.id))
+            .map((f) => (
+              <LinkChip key={f.id} file={f} active onToggle={() => toggleAttach(f.id)} onRemove={() => toggleAttach(f.id)} />
+            ))}
+          {/* Em lista separada por aula: dá para juntar arquivos de várias aulas no mesmo cartão. */}
+          <FilePicker files={files} selected={new Set(attached)} onToggle={toggleAttach} />
         </div>
       )}
       <div className="row gap">
@@ -367,7 +525,8 @@ function CardItem({
   useEffect(() => setDraft(card.body), [card.body]);
 
   const links = state!.links.filter((l) => l.cardId === card.id);
-  const linked = links.map((l) => ({ link: l, file: files.find((f) => f.id === l.fileId)! })).filter((x) => x.file);
+  // Busca em todas as fontes, não só nas da matéria aberta: um vínculo ativo nunca pode ficar invisível.
+  const linked = links.map((l) => ({ link: l, file: state!.files.find((f) => f.id === l.fileId)! })).filter((x) => x.file);
   const activeCount = linked.filter((x) => x.link.active && x.file.enabled).length;
   const last = card.answers.at(-1);
 
@@ -428,6 +587,13 @@ function CardItem({
         <span className="card-type">{TYPE_INFO[card.type].label}</span>
         <span className="muted small">{new Date(card.createdAt).toLocaleDateString('pt-BR')}</span>
         <span className="spacer" />
+        <SubjectSelect
+          value={card.subjectId}
+          onChange={async (subjectId) => {
+            await api.patchCard(card.id, { subjectId });
+            await refresh();
+          }}
+        />
         <div className="menu-wrap">
           <button className="icon-btn" aria-label="Mais ações" aria-expanded={menu} onClick={() => setMenu((m) => !m)} onBlur={() => setTimeout(() => setMenu(false), 150)}>
             <MoreHorizontal size={18} />
@@ -441,7 +607,7 @@ function CardItem({
                     Mudar para {TYPE_INFO[t].label}
                   </button>
                 ))}
-              <button role="menuitem" onClick={() => openChatWith({ cardIds: [card.id] }, card.body.slice(0, 60) || 'Cartão geral')}>
+              <button role="menuitem" onClick={() => openChatWith({ cardIds: [card.id] }, card.body.slice(0, 60) || 'Cartão geral', card.subjectId)}>
                 <MessageCircle size={15} /> Discutir no chat
               </button>
               <button role="menuitem" onClick={async () => (await api.duplicateCard(card.id), refresh())}>
@@ -522,7 +688,7 @@ function CardItem({
             <span>· {last.fileIds.length} arquivo(s)</span>
             <span className="spacer" />
             <CopyButton text={last.text} />
-            <button className="btn btn-ghost btn-sm" onClick={() => openChatWith({ cardIds: [card.id] }, card.body.slice(0, 60) || 'Cartão geral')}>
+            <button className="btn btn-ghost btn-sm" onClick={() => openChatWith({ cardIds: [card.id] }, card.body.slice(0, 60) || 'Cartão geral', card.subjectId)}>
               <MessageCircle size={15} /> Discutir
             </button>
           </div>

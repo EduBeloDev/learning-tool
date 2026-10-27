@@ -27,7 +27,7 @@ export function defaultSettings(): Settings {
 }
 
 function emptyDb(): DB {
-  return { version: 1, files: [], cards: [], links: [], chats: [], settings: defaultSettings() };
+  return { version: 1, subjects: [], files: [], cards: [], links: [], chats: [], settings: defaultSettings() };
 }
 
 export let db: DB = emptyDb();
@@ -80,6 +80,16 @@ export const newId = () => crypto.randomUUID();
 export const now = () => new Date().toISOString();
 
 export const filePath = (f: FileRec) => path.join(UPLOAD_DIR, f.storedName);
+
+/** Só aceita o id de uma matéria que existe; qualquer outra coisa (null, id apagado) vira "sem matéria". */
+export const validSubjectId = (id: unknown) => (typeof id === 'string' && db.subjects.some((s) => s.id === id) ? id : undefined);
+
+/** Número de aula válido dentro da matéria (o upload manda como texto, por isso o Number). */
+export function validLesson(subjectId: string | undefined, lesson: unknown) {
+  const subject = db.subjects.find((s) => s.id === subjectId);
+  const n = Number(lesson);
+  return subject && lesson !== null && Number.isInteger(n) && n >= 1 && n <= subject.lessons ? n : undefined;
+}
 
 export function summarizeFile(f: FileRec): FileSummary {
   const { text, ...rest } = f;

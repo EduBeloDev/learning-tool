@@ -4,6 +4,10 @@ import type { FileKind, FileRec, FileSummary, TextSource } from '../../../shared
 import { api } from '../api';
 import { useStore } from '../store';
 import { Dialog } from './Dialog';
+import { SubjectSelect, groupFiles } from './Subjects';
+
+/** Tipo usado no drag-and-drop de uma fonte (até um cartão ou até uma aba de matéria). */
+export const FILE_DRAG = 'application/x-caderno-file';
 
 export const KIND_NAME: Record<FileKind, string> = { image: 'Imagem', pdf: 'PDF', audio: 'Áudio', text: 'Texto', doc: 'Word' };
 
@@ -105,7 +109,7 @@ export function LinkChip({
   );
 }
 
-/** Lista de arquivos com caixas de seleção, aberta por um botão "+ arquivo". */
+/** Lista de arquivos com caixas de seleção, separada por aula, aberta por um botão "+ arquivo". */
 export function FilePicker({
   files,
   selected,
@@ -119,6 +123,7 @@ export function FilePicker({
   label?: string;
   children?: ReactNode;
 }) {
+  const { state } = useStore();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
   useEffect(() => {
@@ -141,12 +146,17 @@ export function FilePicker({
       {open && (
         <div className="picker-pop" role="menu">
           {files.length === 0 && <p className="muted small">Nenhum arquivo ainda. Envie em "Fontes".</p>}
-          {files.map((f) => (
-            <label key={f.id} className="picker-row">
-              <input type="checkbox" checked={selected.has(f.id)} onChange={() => onToggle(f.id)} />
-              <FileIcon kind={f.kind} size={15} />
-              <span className="ellipsis">{f.name}</span>
-            </label>
+          {groupFiles(files, state?.subjects ?? []).map((g) => (
+            <div key={g.key} role="group" aria-label={g.label || undefined}>
+              {g.label && <p className="picker-head">{g.label}</p>}
+              {g.files.map((f) => (
+                <label key={f.id} className="picker-row">
+                  <input type="checkbox" checked={selected.has(f.id)} onChange={() => onToggle(f.id)} />
+                  <FileIcon kind={f.kind} size={15} />
+                  <span className="ellipsis">{f.name}</span>
+                </label>
+              ))}
+            </div>
           ))}
           {children}
         </div>
@@ -228,6 +238,20 @@ export function FileDrawer({ fileId, onClose }: { fileId: string | null; onClose
               <span>Nome</span>
               <input value={name} onChange={(e) => setName(e.target.value)} />
             </label>
+            {Boolean(state?.subjects.length) && (
+              <div className="field">
+                <span>Matéria e aula</span>
+                <SubjectSelect
+                  withLessons
+                  value={summary?.subjectId}
+                  lesson={summary?.lesson}
+                  onChange={async (subjectId, lesson) => {
+                    await api.patchFile(file.id, { subjectId, lesson });
+                    await refresh();
+                  }}
+                />
+              </div>
+            )}
             <label className="field grow">
               <span>
                 Texto que a IA recebe

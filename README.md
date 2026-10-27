@@ -53,6 +53,7 @@ Variáveis opcionais: `PORT` (API, padrão 5174), `CADERNO_DATA` (pasta de dados
 
 ## Como funciona
 
+- **Matérias e aulas**: cada matéria é uma aba no topo e filtra Workspace, Ferramentas e Chat. Dentro dela, as fontes ficam em pastas de aula (Aula 1 a Aula 10, número ajustável). Um cartão pode usar arquivos de várias aulas.
 - **Workspace**: fontes (arquivos) à esquerda e cartões (pergunta, texto ou geral) à direita. Cada vínculo arquivo↔cartão pode ser ativado ou desativado com um clique (marca-texto amarelo = ativo). O interruptor de cada fonte a desliga em todo o app.
 - **Ferramentas**: fluxos guiados para Resumir, Resolver exercícios, Interpretar problema, Preencher documento e Transcrever áudio.
 - **Chat**: conversa com contexto escolhido (cartões e arquivos). Com o Claude Code, a sessão é retomada enquanto o contexto não muda.
@@ -97,7 +98,6 @@ data/                 Seus arquivos e o db.json (fora do git).
 
 **Médio prazo (1–3 meses)**
 - Testes automatizados da API (upload → cartão → resposta com um provedor falso). (M)
-- Matérias/pastas para organizar fontes e cartões quando passarem de algumas dezenas. (M)
 - PDF escaneado com a NVIDIA: renderizar páginas como imagem e mandar ao modelo de visão. (M)
 - Preencher campos de formulários PDF de verdade. (G)
 

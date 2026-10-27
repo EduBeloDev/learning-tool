@@ -1,6 +1,6 @@
 import { Router } from 'express';
-import type { AppState, Card, CardType, Chat, ChatContext, ProviderStatus, Settings } from '../shared/types';
-import { db, newId, now, nvidiaKey, publicSettings, save, summarizeFile } from './store';
+import { DEFAULT_LESSONS, SUBJECT_COLORS, type AppState, type Card, type CardType, type Chat, type ChatContext, type ProviderStatus, type Settings, type Subject, type SubjectColor } from '../shared/types';
+import { db, newId, now, nvidiaKey, publicSettings, save, summarizeFile, validSubjectId } from './store';
 import { claudeCodeVersion } from './ai/claudeCode';
 import { listNvidiaModels } from './ai/nvidia';
 
@@ -8,6 +8,7 @@ export const apiRouter = Router();
 
 apiRouter.get('/state', (_req, res) => {
   const state: AppState = {
+    subjects: db.subjects,
     files: db.files.map(summarizeFile),
     cards: db.cards,
     links: db.links,
@@ -17,19 +18,66 @@ apiRouter.get('/state', (_req, res) => {
   res.json(state);
 });
 
+// ---------- Matérias ----------
+
+const findSubject = (id: string) => db.subjects.find((s) => s.id === id);
+const isColor = (c: unknown): c is SubjectColor => SUBJECT_COLORS.includes(c as SubjectColor);
+const MAX_LESSONS = 60;
+const lessonCount = (n: unknown) => (Number.isInteger(n) && (n as number) >= 1 && (n as number) <= MAX_LESSONS ? (n as number) : undefined);
+
+apiRouter.post('/subjects', (req, res) => {
+  const { name, color, lessons } = req.body as { name?: string; color?: string; lessons?: number };
+  if (!name?.trim()) return res.status(400).json({ error: 'Dê um nome à matéria.' });
+  const subject: Subject = {
+    id: newId(),
+    name: name.trim(),
+    color: isColor(color) ? color : (SUBJECT_COLORS.find((c) => !db.subjects.some((s) => s.color === c)) ?? SUBJECT_COLORS[db.subjects.length % SUBJECT_COLORS.length]),
+    lessons: lessonCount(lessons) ?? DEFAULT_LESSONS,
+    createdAt: now(),
+  };
+  db.subjects.push(subject);
+  save();
+  res.json(subject);
+});
+
+apiRouter.patch('/subjects/:id', (req, res) => {
+  const subject = findSubject(req.params.id);
+  if (!subject) return res.status(404).json({ error: 'Matéria não encontrada.' });
+  const { name, color, lessons } = req.body as { name?: string; color?: string; lessons?: number };
+  if (name?.trim()) subject.name = name.trim();
+  if (isColor(color)) subject.color = color;
+  if (lessonCount(lessons)) {
+    subject.lessons = lessonCount(lessons)!;
+    // Diminuiu o número de aulas: os arquivos das aulas que sumiram vão para "Sem aula", nada é apagado.
+    for (const f of db.files) if (f.subjectId === subject.id && f.lesson && f.lesson > subject.lessons) delete f.lesson;
+  }
+  save();
+  res.json(subject);
+});
+
+/** Apagar a matéria não apaga nada dentro dela: arquivos, cartões e conversas voltam para "sem matéria". */
+apiRouter.delete('/subjects/:id', (req, res) => {
+  db.subjects = db.subjects.filter((s) => s.id !== req.params.id);
+  for (const item of [...db.files, ...db.cards, ...db.chats]) if (item.subjectId === req.params.id) delete item.subjectId;
+  for (const f of db.files) if (!f.subjectId) delete f.lesson;
+  save();
+  res.status(204).end();
+});
+
 // ---------- Cartões ----------
 
 const CARD_TYPES: CardType[] = ['pergunta', 'texto', 'geral'];
 const findCard = (id: string) => db.cards.find((c) => c.id === id);
 
 apiRouter.post('/cards', (req, res) => {
-  const { type, body, fileIds } = req.body as { type?: CardType; body?: string; fileIds?: string[] };
+  const { type, body, fileIds, subjectId } = req.body as { type?: CardType; body?: string; fileIds?: string[]; subjectId?: string };
   const card: Card = {
     id: newId(),
     type: CARD_TYPES.includes(type!) ? type! : 'pergunta',
     body: body ?? '',
     createdAt: now(),
     answers: [],
+    subjectId: validSubjectId(subjectId),
   };
   db.cards.unshift(card);
   for (const fileId of fileIds ?? []) {
@@ -42,9 +90,10 @@ apiRouter.post('/cards', (req, res) => {
 apiRouter.patch('/cards/:id', (req, res) => {
   const card = findCard(req.params.id);
   if (!card) return res.status(404).json({ error: 'Cartão não encontrado.' });
-  const { type, body } = req.body as Partial<Card>;
+  const { type, body, subjectId } = req.body as Partial<Omit<Card, 'subjectId'>> & { subjectId?: string | null };
   if (type && CARD_TYPES.includes(type)) card.type = type;
   if (typeof body === 'string') card.body = body;
+  if (subjectId !== undefined) card.subjectId = validSubjectId(subjectId);
   save();
   res.json(card);
 });
@@ -100,7 +149,7 @@ apiRouter.delete('/links', (req, res) => {
 const findChat = (id: string) => db.chats.find((c) => c.id === id);
 
 apiRouter.post('/chats', (req, res) => {
-  const { title, context } = req.body as { title?: string; context?: Partial<ChatContext> };
+  const { title, context, subjectId } = req.body as { title?: string; context?: Partial<ChatContext>; subjectId?: string };
   const chat: Chat = {
     id: newId(),
     title: title?.trim() || 'Nova conversa',
@@ -108,6 +157,7 @@ apiRouter.post('/chats', (req, res) => {
     updatedAt: now(),
     context: { cardIds: context?.cardIds ?? [], fileIds: context?.fileIds ?? [] },
     messages: [],
+    subjectId: validSubjectId(subjectId),
   };
   db.chats.unshift(chat);
   save();
@@ -117,9 +167,10 @@ apiRouter.post('/chats', (req, res) => {
 apiRouter.patch('/chats/:id', (req, res) => {
   const chat = findChat(req.params.id);
   if (!chat) return res.status(404).json({ error: 'Conversa não encontrada.' });
-  const { title, context } = req.body as { title?: string; context?: ChatContext };
+  const { title, context, subjectId } = req.body as { title?: string; context?: ChatContext; subjectId?: string | null };
   if (title?.trim()) chat.title = title.trim();
   if (context) chat.context = { cardIds: context.cardIds ?? [], fileIds: context.fileIds ?? [] };
+  if (subjectId !== undefined) chat.subjectId = validSubjectId(subjectId);
   chat.updatedAt = now();
   save();
   res.json(chat);

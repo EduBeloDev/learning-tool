@@ -4,6 +4,7 @@ import type { FileSummary, ToolId } from '../../../shared/types';
 import { api } from '../api';
 import { useStore } from '../store';
 import { FileDrawer, FileIcon, FileStatus, LinkChip } from '../components/files';
+import { groupFiles } from '../components/Subjects';
 import { CopyButton, DownloadButton, RunOutput } from '../components/RunOutput';
 
 type Choice = { value: string; label: string; desc: string };
@@ -160,28 +161,46 @@ function Choices({ choices, value, onChange, name }: { choices: Choice[]; value:
   );
 }
 
+/** Arquivos separados por aula; dá para marcar de várias aulas, uma aula inteira ou tudo. */
 function FileSelect({ files, selected, setSelected }: { files: FileSummary[]; selected: Set<string>; setSelected: (s: Set<string>) => void }) {
+  const { state } = useStore();
   if (!files.length) return <p className="muted">Nenhum arquivo ainda. Envie seus materiais na aba Workspace (ou cole o conteúdo no campo de texto abaixo).</p>;
-  const toggle = (id: string) => {
+  const set = (ids: string[], on: boolean) => {
     const n = new Set(selected);
-    n.has(id) ? n.delete(id) : n.add(id);
+    for (const id of ids) on ? n.add(id) : n.delete(id);
     setSelected(n);
   };
+  const groups = groupFiles(files, state?.subjects ?? []);
+  const allIn = (list: FileSummary[]) => list.every((f) => selected.has(f.id));
   return (
-    <div className="chips">
-      {files.map((f) => (
-        <LinkChip key={f.id} file={f} active={selected.has(f.id)} onToggle={() => toggle(f.id)} />
+    <div className="file-groups">
+      {groups.map((g) => (
+        <div key={g.key} className="file-group" role="group" aria-label={g.label || undefined}>
+          {g.label && (
+            <div className="file-group-head">
+              <span>{g.label}</span>
+              <button className="link-btn small" onClick={() => set(g.files.map((f) => f.id), !allIn(g.files))}>
+                {allIn(g.files) ? 'desmarcar' : 'marcar todos'}
+              </button>
+            </div>
+          )}
+          <div className="chips">
+            {g.files.map((f) => (
+              <LinkChip key={f.id} file={f} active={selected.has(f.id)} onToggle={() => set([f.id], !selected.has(f.id))} />
+            ))}
+          </div>
+        </div>
       ))}
-      <button className="link-btn small" onClick={() => setSelected(new Set(selected.size === files.length ? [] : files.map((f) => f.id)))}>
-        {selected.size === files.length ? 'nenhum' : 'todos'}
+      <button className="link-btn small" onClick={() => set(files.map((f) => f.id), !allIn(files))}>
+        {allIn(files) ? 'nenhum' : groups.length > 1 ? 'todos, de todas as aulas' : 'todos'}
       </button>
     </div>
   );
 }
 
 function ToolForm({ tool }: { tool: ToolId }) {
-  const { state, runs, startRun, cancelRun, refresh, toast, openChatWith } = useStore();
-  const files = (state?.files ?? []).filter((f) => f.enabled);
+  const { state, runs, startRun, cancelRun, refresh, toast, openChatWith, subjectId, inSubject } = useStore();
+  const files = (state?.files ?? []).filter((f) => f.enabled && inSubject(f));
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [text, setText] = useState('');
   const [formato, setFormato] = useState('detalhado');
@@ -191,15 +210,22 @@ function ToolForm({ tool }: { tool: ToolId }) {
   const runKey = `tool:${tool}`;
   const run = runs[runKey];
 
-  const options: Record<string, string> = tool === 'resumo' ? { formato } : tool === 'exercicios' ? { modo, quais } : tool === 'preencher' ? { documento } : {};
-  const fileIds = tool === 'preencher' && documento ? [...new Set([documento, ...selected])] : [...selected];
+  // Só o que está na tela: ao trocar de matéria, o que foi marcado em outra não vai junto escondido.
+  const visible = (id: string) => files.some((f) => f.id === id);
+  const doc = visible(documento) ? documento : '';
+  const options: Record<string, string> = tool === 'resumo' ? { formato } : tool === 'exercicios' ? { modo, quais } : tool === 'preencher' ? { documento: doc } : {};
+  const fileIds = (tool === 'preencher' && doc ? [...new Set([doc, ...selected])] : [...selected]).filter(visible);
 
   const generate = () => startRun(runKey, { kind: 'tool', tool, fileIds, text, options });
 
   const toolName = TOOLS.find((t) => t.id === tool)!.name;
   const saveAsSource = async () => {
     if (!run?.text) return null;
-    const f = await api.createText(`${toolName} – ${new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).replace(/\//g, '-')}`, run.text);
+    const f = await api.createText(
+      `${toolName} – ${new Date().toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' }).replace(/\//g, '-')}`,
+      run.text,
+      subjectId ?? undefined,
+    );
     await refresh();
     toast(`Salvo em Fontes como "${f.name}".`, 'ok');
     return f;
@@ -231,7 +257,7 @@ function ToolForm({ tool }: { tool: ToolId }) {
     <div className="stack">
       {tool === 'preencher' && (
         <Step n={n++} title="Documento a preencher">
-          <select value={documento} onChange={(e) => setDocumento(e.target.value)} className="select">
+          <select value={doc} onChange={(e) => setDocumento(e.target.value)} className="select">
             <option value="">Nenhum arquivo: vou descrever o documento nas instruções</option>
             {files.map((f) => (
               <option key={f.id} value={f.id}>
@@ -243,7 +269,7 @@ function ToolForm({ tool }: { tool: ToolId }) {
       )}
 
       <Step n={n++} title={tool === 'preencher' ? 'Fontes de informação' : tool === 'explicar' ? 'Materiais (opcional)' : 'Materiais'}>
-        <FileSelect files={files.filter((f) => f.id !== documento)} selected={selected} setSelected={setSelected} />
+        <FileSelect files={files.filter((f) => f.id !== doc)} selected={selected} setSelected={setSelected} />
       </Step>
 
       {tool === 'resumo' && (
@@ -291,7 +317,7 @@ function ToolForm({ tool }: { tool: ToolId }) {
                 className="btn btn-ghost btn-sm"
                 onClick={async () => {
                   const f = await saveAsSource();
-                  if (f) openChatWith({ fileIds: [...fileIds, f.id] }, toolName);
+                  if (f) openChatWith({ fileIds: [...fileIds, f.id] }, toolName, subjectId ?? undefined);
                 }}
               >
                 <MessageCircle size={15} /> Discutir no chat
@@ -312,10 +338,10 @@ const WHISPER_MODELS: Choice[] = [
 ];
 
 function Transcrever() {
-  const { state, refresh, queueTranscription, transcriptions } = useStore();
+  const { state, refresh, queueTranscription, transcriptions, inSubject } = useStore();
   const [drawer, setDrawer] = useState<string | null>(null);
   if (!state) return null;
-  const audios = state.files.filter((f) => f.kind === 'audio');
+  const audios = state.files.filter((f) => f.kind === 'audio' && inSubject(f));
   const pending = audios.filter((f) => !f.textChars && !transcriptions[f.id]);
   const whisper = state.settings.whisper;
 

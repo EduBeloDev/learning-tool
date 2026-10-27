@@ -2,6 +2,7 @@ import { useStore } from '../store';
 
 const SECTIONS = [
   ['comecar', 'Comece em 3 passos'],
+  ['materias', 'Matérias e aulas'],
   ['workspace', 'Workspace e vínculos'],
   ['ferramentas', 'Ferramentas'],
   ['chat', 'Chat'],
@@ -41,6 +42,35 @@ export function Ajuda() {
               <strong>Clique em Responder.</strong> A resposta aparece embaixo do cartão. Para tirar dúvidas sobre ela, use <em>Discutir</em>: o chat abre já com o contexto.
             </li>
           </ol>
+        </section>
+
+        <section id="ajuda-materias">
+          <h2>Matérias e aulas</h2>
+          <p>
+            Cada matéria ganha uma aba no topo da página (<em>Cálculo I</em>, <em>Física II</em>…), e cada matéria é dividida em pastas de aula: <strong>Aula 1</strong> a{' '}
+            <strong>Aula 10</strong> (o número de aulas pode ser mudado). Crie a primeira em <strong>+ Nova matéria</strong>.
+          </p>
+          <ul>
+            <li>
+              A matéria aberta vale para o <strong>Workspace</strong>, as <strong>Ferramentas</strong> e o <strong>Chat</strong> ao mesmo tempo: só aparece o que é dela, e
+              tudo que você enviar ou criar já nasce nela. <strong>Todas</strong> mostra tudo junto.
+            </li>
+            <li>
+              Nas Fontes, cada aula é uma pasta. Escolha a aula em <strong>Enviar para</strong>, solte o arquivo direto na pasta ou use o botão de envio ao lado do nome da
+              pasta.
+            </li>
+            <li>
+              Para mudar um arquivo de aula, arraste-o até outra pasta. Para mudar de matéria, arraste até outra aba, ou abra o arquivo e troque em{' '}
+              <strong>Matéria e aula</strong>.
+            </li>
+            <li>
+              Os arquivos ficam separados, mas um cartão pode usar arquivos de <strong>várias aulas</strong>: em <strong>+ arquivo</strong> a lista vem dividida por aula. Nas
+              Ferramentas, dá para marcar uma aula inteira de uma vez.
+            </li>
+            <li>
+              Excluir uma matéria (lápis ao lado das abas) não apaga nada: os arquivos, cartões e conversas dela ficam sem matéria, em <strong>Todas</strong>.
+            </li>
+          </ul>
         </section>
 
         <section id="ajuda-workspace">

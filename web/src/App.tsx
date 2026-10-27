@@ -6,6 +6,7 @@ import { Ferramentas } from './tabs/Ferramentas';
 import { Chat } from './tabs/Chat';
 import { Ajuda } from './tabs/Ajuda';
 import { SettingsDialog } from './components/SettingsDialog';
+import { SubjectBar } from './components/Subjects';
 import { Toasts } from './components/Toasts';
 import { api } from './api';
 
@@ -86,6 +87,7 @@ export function App() {
             </button>
           </div>
         )}
+        {state && tab !== 'ajuda' && <SubjectBar />}
         {/* Todas as abas ficam montadas: formulários e rolagem sobrevivem à troca de aba. */}
         {state &&
           TABS.map((t) => (
