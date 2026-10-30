@@ -101,6 +101,21 @@ data/                 Seus arquivos e o db.json (fora do git).
 - “Preencher documento” devolve o documento preenchido em Markdown. Ainda não preenche campos de formulários PDF nem gera .docx.
 - Apresentações (.pptx), Word antigo (.doc) e fotos HEIC precisam ser convertidos antes.
 
+## Fluxo de trabalho e commits
+
+Estas orientações valem para contribuições manuais e para assistentes de IA.
+
+- **Sem coautoria do Claude:** não adicionar trailers `Co-Authored-By` atribuindo commits ao Claude ou à Anthropic. Nos commits feitos por assistentes para o mantenedor, usar a identidade Git de `EduBeloDev`, com o e-mail `95192286+EduBeloDev@users.noreply.github.com`.
+- **Uma mudança coerente por commit:** concluir uma pequena etapa, verificar seu funcionamento e commitar antes de começar a próxima. Uma função completa, uma correção ou uma parte funcional de um módulo são bons recortes. Não é necessário esperar terminar o módulo inteiro.
+- **Manter cada commit utilizável:** incluir juntos os tipos, chamadas, testes e demais ajustes necessários àquela mudança, mesmo que estejam em arquivos diferentes. Não separar por função ou arquivo se isso deixar o projeto quebrado no meio do histórico.
+- **Evitar acúmulo:** não reunir funcionalidades independentes, refatorações e formatação em um único commit com milhares de linhas. Preferir dezenas ou poucas centenas de linhas quando possível, sem um limite artificial. Arquivos gerados e lockfiles podem aumentar o diff e devem acompanhar a mudança que os exige.
+- **Revisar antes de registrar:** conferir `git diff` e `git diff --cached`, selecionar somente os arquivos ou trechos da etapa (`git add <arquivo>` ou `git add -p`) e executar as verificações adequadas. Preservar alterações preexistentes de outras tarefas, inclusive as já preparadas no stage.
+- **Descrever o resultado:** usar mensagens curtas que expliquem o que mudou. Cada commit deve ser fácil de revisar e, quando necessário, reverter sem desfazer trabalho sem relação com ele.
+
+Por exemplo, para adicionar exportação de documentos: primeiro implementar e verificar a conversão; depois integrar a rota da API; depois adicionar a ação na interface. Cada etapa vira um commit quando estiver consistente, com as verificações e a documentação pertinentes. Se duas partes só funcionarem juntas, entram no mesmo commit.
+
+Commits pequenos facilitam localizar falhas e recuperar mudanças. Para manter uma cópia remota do trabalho, publicar os commits verificados na branch de trabalho; um commit apenas local não é backup no GitHub.
+
 ## Próximos passos
 
 **Curto prazo (1–2 semanas)**
