@@ -1,0 +1,116 @@
+LICENÇA CADERNO — USO E COMPARTILHAMENTO GRATUITO
+Versão 1.0 — 30 de outubro de 2026
+
+Copyright (c) 2026 EduBeloDev
+Projeto: https://github.com/EduBeloDev/learning-tool
+
+1. ESCOPO
+
+Esta licença se aplica ao código e à documentação do Caderno disponibilizados
+sob ela (o “Software”), incluindo suas cópias, modificações e partes substanciais.
+“Versões modificadas” incluem adaptações, traduções, forks e integrações que
+incorporem código do Software. Componentes de terceiros permanecem sujeitos às
+suas próprias licenças; esta licença não altera os direitos sobre eles.
+
+2. PERMISSÕES
+
+Desde que cumpra estas condições, qualquer pessoa pode, gratuitamente, usar,
+executar, estudar, copiar, modificar e redistribuir o Software, bem como
+disponibilizá-lo pela internet sem cobrar pelo acesso ou uso.
+
+É permitido usar o Software para fins pessoais, educacionais, profissionais e
+comerciais, inclusive para criar conteúdo, prestar serviços que entreguem
+resultados e monetizar perfis de TikTok, YouTube e outras plataformas, por meio
+de publicidade, patrocínios, afiliados, assinaturas de conteúdo ou venda de
+conteúdo produzido com a ferramenta.
+
+3. PROIBIÇÃO DE VENDA DA FERRAMENTA E DE ACESSO PAGO
+
+Não é permitido vender, alugar, sublicenciar mediante pagamento ou cobrar pela
+distribuição, acesso ou uso do Software, original ou modificado, nem de partes
+substanciais dele. Não é permitido modificar o Software para comercializá-lo
+nessas condições.
+
+A proibição abrange assinaturas, licenças pagas, cobrança por usuário ou uso,
+APIs pagas, hospedagem paga da ferramenta, SaaS, versões white-label e inclusão
+em produtos, planos, cursos ou pacotes pagos quando o pagamento for condição
+para obter, acessar ou utilizar o Software ou suas funcionalidades. Não se pode
+contornar essa proibição chamando a cobrança de taxa de instalação, manutenção,
+suporte, hospedagem ou doação obrigatória.
+
+Doações voluntárias são permitidas, desde que não condicionem nem concedam
+acesso, uso ou funcionalidades exclusivas do Software. Serviços opcionais de
+consultoria ou suporte podem ser cobrados quando o Software continuar disponível
+gratuitamente e a contratação não for requisito para obtê-lo ou utilizá-lo.
+
+O pagamento pelo usuário de sua própria infraestrutura ou de serviços de
+terceiros, como provedores de IA, não constitui venda do Software.
+
+4. COMPARTILHAMENTO E CÓDIGO DISPONÍVEL
+
+Ao redistribuir o Software ou uma versão modificada, ou disponibilizar suas
+funcionalidades a terceiros pela rede, você deve:
+
+a) fazê-lo gratuitamente, sob esta mesma licença, sem restrições adicionais
+   sobre os direitos que ela concede;
+b) preservar o aviso de copyright, esta licença e os avisos de atribuição;
+c) disponibilizar publicamente, sem cobrança ou exigência de cadastro, o código
+   fonte completo correspondente à versão oferecida, na forma preferida para
+   modificação, incluindo scripts e instruções necessários para compilá-la,
+   instalá-la e executá-la;
+d) fornecer, junto à distribuição ou na interface do serviço, uma cópia desta
+   licença e um link visível para esse código fonte; e
+e) identificar as modificações e seus responsáveis, sem sugerir que a versão
+   modificada é oficial ou endossada pelo autor original.
+
+O código deve permanecer disponível enquanto a distribuição ou o serviço for
+oferecido. Dependências de terceiros podem ser indicadas por nome, versão e
+fonte de obtenção, respeitadas suas próprias licenças. Não é necessário publicar
+credenciais, dados pessoais, arquivos de usuários ou infraestrutura privada.
+
+Modificações usadas apenas de forma privada, sem distribuição ou oferta de
+funcionalidades a terceiros pela rede, não precisam ser publicadas.
+
+5. CONTEÚDO E RESULTADOS
+
+Esta licença não impõe suas condições de redistribuição ao material fornecido
+pelo usuário nem aos resultados produzidos com o Software, como textos,
+roteiros, vídeos, imagens, documentos e materiais de estudo, exceto quando
+incorporem código ou partes substanciais do próprio Software.
+
+Você pode publicar, vender e monetizar esses resultados sem obrigação de
+divulgá-los gratuitamente ou licenciá-los sob esta licença. Entregar conteúdo
+ou resultados a clientes é permitido; vender acesso às funcionalidades da
+ferramenta, inclusive por uma interface intermediária ou API, é proibido.
+Os direitos de terceiros e os termos dos provedores utilizados continuam
+aplicáveis. Esta licença não concede direitos sobre materiais de terceiros.
+
+6. TITULARIDADE
+
+Esta licença não transfere a titularidade do Software nem concede direitos de
+marca ou de endosso. Direitos não concedidos expressamente ficam reservados aos
+respectivos titulares. Exceções a estas condições dependem de autorização
+expressa, por escrito, dos titulares dos direitos envolvidos.
+
+7. DESCUMPRIMENTO
+
+O descumprimento destas condições encerra automaticamente as permissões
+concedidas ao infrator. Nesse caso, ele deve cessar o uso, a distribuição e a
+oferta do Software não autorizados. Os direitos dos destinatários que permaneçam
+em conformidade com esta licença não são encerrados por infrações de terceiros.
+
+8. AUSÊNCIA DE GARANTIAS E LIMITAÇÃO DE RESPONSABILIDADE
+
+NA MEDIDA PERMITIDA PELA LEGISLAÇÃO APLICÁVEL, O SOFTWARE É FORNECIDO “COMO ESTÁ”,
+SEM GARANTIAS DE QUALQUER NATUREZA, EXPRESSAS OU IMPLÍCITAS, INCLUSIVE DE
+COMERCIALIZAÇÃO, ADEQUAÇÃO A UMA FINALIDADE ESPECÍFICA OU NÃO VIOLAÇÃO DE DIREITOS.
+OS AUTORES E TITULARES NÃO RESPONDEM POR DANOS, PERDAS OU OUTRAS RECLAMAÇÕES
+DECORRENTES DO SOFTWARE OU DE SEU USO, SALVO QUANDO A LEI NÃO PERMITIR ESSA
+EXCLUSÃO OU LIMITAÇÃO.
+
+9. NATUREZA DA LICENÇA
+
+Esta é uma licença personalizada de código disponível (source-available), com
+restrições à comercialização do Software. Não é uma licença open source segundo
+a definição da Open Source Initiative (OSI). O texto em português é o texto
+oficial desta versão.

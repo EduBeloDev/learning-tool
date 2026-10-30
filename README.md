@@ -2,6 +2,17 @@
 
 Caderno de estudos com IA, rodando na sua máquina. Você envia PDFs, fotos, áudios, documentos e transcrições; liga esses arquivos a perguntas e textos; e a IA resume, resolve exercícios, interpreta problemas, preenche documentos e conversa com você sobre cada um.
 
+## Licença
+
+O Caderno usa a [Licença Caderno — Uso e Compartilhamento Gratuito](LICENSE), uma licença personalizada de código disponível (*source-available*).
+
+- **Pode:** usar e modificar a ferramenta, produzir e vender conteúdo com ela, prestar serviços que entreguem resultados e monetizar perfis de TikTok, YouTube e outras plataformas.
+- **Não pode:** vender a ferramenta ou versões modificadas, nem cobrar pelo acesso ou uso, inclusive por assinatura, API, SaaS ou inclusão em pacotes pagos.
+- **Ao compartilhar ou oferecer a ferramenta pela internet:** mantenha o acesso gratuito, publique o código fonte correspondente e preserve a mesma licença e a atribuição. Modificações exclusivamente privadas não precisam ser publicadas.
+- **Seus materiais e resultados:** não precisam ser publicados nem distribuídos gratuitamente. Direitos de terceiros e termos dos provedores de IA continuam aplicáveis.
+
+Este resumo não substitui o [texto completo da licença](LICENSE). Por restringir a venda da ferramenta, esta não é uma licença open source segundo a definição da OSI.
+
 ## Rodar
 
 Requisitos: Node 22+ e pelo menos uma IA configurada (veja abaixo).
